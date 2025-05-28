@@ -30,10 +30,9 @@ The Second Matching Attempt (Partial Match / Semi-automatic)
 """
     
 duplicate_flag = False
-count = 0 
 
 def match_csp_scraped_names_to_rmp():
-    print("\nFinding Perfect Matches...")
+    print("\nFinding Perfect Matches...\n")
 
     global duplicate_flag
 
@@ -61,19 +60,23 @@ def match_csp_scraped_names_to_rmp():
 
     print(f"Number of Perfect Matches Made: {number_of_perfect_matches}")
     print(f"Number of Remaining CSP Professors: {number_of_csp_professors - number_of_perfect_matches}\n")
+
+    print("Finding Partial Matches...\n")
+
+    csp_df = csp_df.replace(r'^\s*$', None, regex=True)
     
     # Second check if there are any partial matches (CSP Last Name == RMP Last Name and No CSP First Name)
-    csp_df, rmp_professors_df, number_of_parital_matches = check_for_partial_csp_rmp_match(csp_df, rmp_professors_df)
+    csp_df, rmp_professors_df, number_of_partial_matches = check_for_partial_csp_rmp_match(csp_df, rmp_professors_df)
+
+    print(f"Number of Partial Matches Made: {number_of_partial_matches}")
+    print(f"Number of Remaining CSP Professors: {number_of_csp_professors - number_of_perfect_matches - number_of_partial_matches}\n")
 
     print(csp_df[csp_df["id"].isna()].shape)
-    print(count)
-
-
     
-    # conn = sqlite3.connect(Database.NAME)
-    # csp_df.to_sql(f"{Database.CSP_DATA_TABLE_NAME}", conn, index=False, if_exists='replace')
-    # conn.commit()
-    # conn.close()
+    conn = sqlite3.connect(Database.NAME)
+    csp_df.to_sql(f"{Database.CSP_DATA_TABLE_NAME}", conn, index=False, if_exists='replace')
+    conn.commit()
+    conn.close()
 
 # First Matching Attempt:  
 def check_for_perfect_csp_rmp_match(data, rmp_professors_df):
@@ -102,31 +105,101 @@ def check_for_perfect_csp_rmp_match(data, rmp_professors_df):
     
 # Second Matching Attempt
 def check_for_partial_csp_rmp_match(csp_df, rmp_professors_df):
+    infile = open("partial_matching_selections.txt", "r")
+    selections = infile.readlines()
+    infile.close()
 
+    outfile = open("partial_matching_selections.txt", "a")
     remaining_csp_df = csp_df[csp_df['id'].isna() & csp_df['first_name'].isna()]
+    selection_index = 0 
     count = 0 
 
-    for i, row in remaining_csp_df.iterrows():
-        matches = rmp_professors_df[(rmp_professors_df['last_name'] == row['last_name']) & (rmp_professors_df['matched'] == False)].copy()
+    for _, row in remaining_csp_df.iterrows():
+        mask = (rmp_professors_df['last_name'] == row['last_name']) & (rmp_professors_df['matched'] == False)
+        matches = rmp_professors_df[mask].copy()
         matches.index = range(1, len(matches) + 1)
+
         if matches.empty:
             continue
-        print("CSP Professor Data")
-        print(f"{row["scraped_name"]} : {row["course_title"]} : {row["course_code"]}\n")
-        print("Matching RMP Profiles")
-        print(matches)
-        print()
-        selection = int(input(f"Enter 1 through {len(matches)} to select the matching one and -1 if no match:\n"))
+
+        print(f"CSP Professor Data: {row["scraped_name"]} | {row["course_title"]} | {row["course_code"]}\n")
+        print("Matching RMP Profiles\n")
+        print(matches, end="\n\n")
+
+        if selection_index < len(selections):
+            line = selections[selection_index].strip()
+            selection = int(line)
+            selection_index += 1
+        else:
+            selection = int(input(f"Enter 1 through {len(matches)} to select the matching one, -1 if no match, or 0 to quit:\n"))
+            if selection == 0:
+                print("Break Invoked. All Selections Saved!")
+                outfile.close()
+                return
+            outfile.write(f"{selection}\n")
+            outfile.flush() 
 
         if selection == -1:
             continue
-
-        selected_id = matches.iloc[selection - 1]['id']
-        csp_df.at[i, 'id'] = selected_id
-        rmp_professors_df.loc[rmp_professors_df['id'] == selected_id, 'matched'] = True
+        
         count += 1 
+        selected_id = matches.iloc[selection - 1]['id']
+        csp_df.at[row.name, 'id'] = selected_id
+        rmp_professors_df.loc[rmp_professors_df['id'] == selected_id, 'matched'] = True
+
+        print("\nUpdated!")
+        print(csp_df.loc[csp_df["scraped_name"] == row["scraped_name"]], end="\n\n")
 
     return csp_df, rmp_professors_df, count 
+        
+        
+# def check_for_partial_csp_rmp_match(csp_df, rmp_professors_df):
+
+#     with open("partial_matching_selections.txt", "r") as file:
+#         line_count = sum(1 for _ in file)
+
+
+#     outfile = open("partial_matching_selections.txt", "a")
+
+#     lines = []
+
+#     remaining_csp_df = csp_df[csp_df['id'].isna() & csp_df['first_name'].isna()]
+
+#     for _, row in remaining_csp_df.iloc[line_count:].iterrows():
+#         matches = rmp_professors_df[(rmp_professors_df['last_name'] == row['last_name']) & (rmp_professors_df['matched'] == False)].copy()
+#         matches.index = range(1, len(matches) + 1)
+#         if matches.empty:
+#             continue
+#         print("CSP Professor Data")
+#         print(f"{row["scraped_name"]} : {row["course_title"]} : {row["course_code"]}\n")
+#         print("Matching RMP Profiles")
+#         print(matches)
+#         print()
+#         selection = int(input(f"Enter 1 through {len(matches)} to select the matching one and -1 if no match:\n"))
+#         print()
+#         if selection == 0:
+#             print("Break Invoked. All Selections Saved!")
+#             return
+#         outfile.write(f"{selection}\n")
+
+#     outfile.close()
+
+#     print("Selection is Completed")
+
+    
+
+
+        
+    #     selected_id = matches.iloc[selection - 1]['id']
+    #     csp_df.at[i, 'id'] = selected_id
+    #     rmp_professors_df.loc[rmp_professors_df['id'] == selected_id, 'matched'] = True
+    #     count += 1 
+
+    #     print("Updated!")
+    #     print(csp_df.loc[csp_df["scraped_name"] == row["scraped_name"]])
+    #     print()
+
+    # return csp_df, rmp_professors_df, count 
 
 
 
@@ -167,3 +240,6 @@ def check_for_partial_csp_rmp_match(csp_df, rmp_professors_df):
 
 if __name__ == "__main__":
     match_csp_scraped_names_to_rmp()
+
+#missing in rmp 
+# Shuo-Chieh Huang 
