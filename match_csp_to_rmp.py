@@ -111,8 +111,11 @@ def check_for_partial_csp_rmp_match(csp_df, rmp_professors_df):
 
     outfile = open("partial_matching_selections.txt", "a")
     remaining_csp_df = csp_df[csp_df['id'].isna() & csp_df['first_name'].isna()]
+    remaining_csp_df_length = len(remaining_csp_df)
+
     selection_index = 0 
     count = 0 
+    remaining_index = 1
 
     for _, row in remaining_csp_df.iterrows():
         mask = (rmp_professors_df['last_name'] == row['last_name']) & (rmp_professors_df['matched'] == False)
@@ -120,8 +123,10 @@ def check_for_partial_csp_rmp_match(csp_df, rmp_professors_df):
         matches.index = range(1, len(matches) + 1)
 
         if matches.empty:
+            remaining_index += 1 
             continue
-
+        
+        print(f"{remaining_index}/{remaining_csp_df_length}")
         print(f"CSP Professor Data: {row["scraped_name"]} | {row["course_title"]} | {row["course_code"]}\n")
         print("Matching RMP Profiles\n")
         print(matches, end="\n\n")
@@ -138,6 +143,8 @@ def check_for_partial_csp_rmp_match(csp_df, rmp_professors_df):
                 return
             outfile.write(f"{selection}\n")
             outfile.flush() 
+
+        remaining_index += 1 
 
         if selection == -1:
             print()
