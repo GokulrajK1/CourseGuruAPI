@@ -140,6 +140,7 @@ def check_for_partial_csp_rmp_match(csp_df, rmp_professors_df):
             outfile.flush() 
 
         if selection == -1:
+            print()
             continue
         
         count += 1 
