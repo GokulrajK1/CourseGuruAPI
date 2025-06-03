@@ -68,10 +68,10 @@ def match_csp_scraped_names_to_rmp():
     # Second check if there are any partial matches (CSP Last Name == RMP Last Name and No CSP First Name)
     csp_df, rmp_professors_df, number_of_partial_matches = check_for_partial_csp_rmp_match(csp_df, rmp_professors_df)
 
+    print(f"Number of Perfect Matches Made: {number_of_perfect_matches}")
     print(f"Number of Partial Matches Made: {number_of_partial_matches}")
-    print(f"Number of Remaining CSP Professors: {number_of_csp_professors - number_of_perfect_matches - number_of_partial_matches}\n")
-
-    print(csp_df[csp_df["id"].isna()].shape)
+    print(f"Number of Remaining CSP Professors: {number_of_csp_professors - number_of_perfect_matches - number_of_partial_matches}")
+    print(f"Total Number of Professors {number_of_csp_professors}")
     
     conn = sqlite3.connect(Database.NAME)
     csp_df.to_sql(f"{Database.CSP_DATA_TABLE_NAME}", conn, index=False, if_exists='replace')
