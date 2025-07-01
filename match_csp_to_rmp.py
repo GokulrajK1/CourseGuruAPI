@@ -1,6 +1,6 @@
 import sqlite3
 import pandas as pd 
-from database import Database
+from database import ProfessorsDB
 
 """ 
 This script will attempt to match the scraped names from CSP to professor profiles on RMP.
@@ -36,9 +36,9 @@ def match_csp_scraped_names_to_rmp():
 
     global duplicate_flag
 
-    conn = sqlite3.connect(Database.NAME)
-    csp_df = pd.read_sql_query(f"SELECT * from {Database.CSP_DATA_TABLE_NAME}", conn)
-    rmp_professors_df = pd.read_sql_query(f"SELECT * from {Database.PROFESSOR_TABLE_NAME}", conn)
+    conn = sqlite3.connect(ProfessorsDB.NAME)
+    csp_df = pd.read_sql_query(f"SELECT * from {ProfessorsDB.CSP_DATA_TABLE_NAME}", conn)
+    rmp_professors_df = pd.read_sql_query(f"SELECT * from {ProfessorsDB.PROFESSOR_TABLE_NAME}", conn)
 
     rmp_professors_df['matched'] = False
 
@@ -73,8 +73,8 @@ def match_csp_scraped_names_to_rmp():
     print(f"Number of Remaining CSP Professors: {number_of_csp_professors - number_of_perfect_matches - number_of_partial_matches}")
     print(f"Total Number of Professors {number_of_csp_professors}")
     
-    conn = sqlite3.connect(Database.NAME)
-    csp_df.to_sql(f"{Database.CSP_DATA_TABLE_NAME}", conn, index=False, if_exists='replace')
+    conn = sqlite3.connect(ProfessorsDB.NAME)
+    csp_df.to_sql(f"{ProfessorsDB.CSP_DATA_TABLE_NAME}", conn, index=False, if_exists='replace')
     conn.commit()
     conn.close()
 

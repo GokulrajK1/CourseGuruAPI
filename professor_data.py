@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 import sqlite3
 from name import Name
-from database import Database
+from database import ProfessorsDB
 
 """
 This script will fetch and update the database professors.db 
@@ -45,21 +45,21 @@ def fetch_scraped_csp_data():
     print("Finished Fetching CSP Data!")
 
 def remove_duplicates_in_csp_db():
-    conn = sqlite3.connect(Database.NAME)
-    df = pd.read_sql_query(f"SELECT * FROM {Database.CSP_DATA_TABLE_NAME}", conn)
+    conn = sqlite3.connect(ProfessorsDB.NAME)
+    df = pd.read_sql_query(f"SELECT * FROM {ProfessorsDB.CSP_DATA_TABLE_NAME}", conn)
     df_deduped = df.drop_duplicates(subset=["scraped_name", "first_name", "middle_name"])
     df_deduped.reset_index(drop=True, inplace=True)
-    df_deduped.to_sql(Database.CSP_DATA_TABLE_NAME, conn, if_exists="replace", index=False)
+    df_deduped.to_sql(ProfessorsDB.CSP_DATA_TABLE_NAME, conn, if_exists="replace", index=False)
     conn.close() 
 
 def insert_csp_data_to_db(names_data):
-    conn = sqlite3.connect(Database.NAME)
+    conn = sqlite3.connect(ProfessorsDB.NAME)
     cursor = conn.cursor()
 
-    cursor.execute(f"DROP TABLE IF EXISTS {Database.CSP_DATA_TABLE_NAME}")
+    cursor.execute(f"DROP TABLE IF EXISTS {ProfessorsDB.CSP_DATA_TABLE_NAME}")
 
     cursor.execute(f'''
-        CREATE TABLE IF NOT EXISTS {Database.CSP_DATA_TABLE_NAME} (
+        CREATE TABLE IF NOT EXISTS {ProfessorsDB.CSP_DATA_TABLE_NAME} (
             scraped_name TEXT,
             first_name TEXT,
             middle_name TEXT,
@@ -70,7 +70,7 @@ def insert_csp_data_to_db(names_data):
     ''')
 
     query = f""" 
-        INSERT INTO {Database.CSP_DATA_TABLE_NAME} (
+        INSERT INTO {ProfessorsDB.CSP_DATA_TABLE_NAME} (
             scraped_name, 
             first_name, 
             middle_name, 
@@ -267,17 +267,17 @@ def fetch_all_professors_names_and_ids() -> pd.DataFrame:
     professor_info_df = professor_info_df[["firstName", "lastName", "id", "department", "avgRating", "avgDifficulty", "wouldTakeAgainPercent"]]
     professor_info_df.columns = ["first_name", "last_name", "id", "department", "avg_rating", "avg_difficulty", "would_take_again_percent"]
     
-    conn = sqlite3.connect(Database.NAME)
+    conn = sqlite3.connect(ProfessorsDB.NAME)
 
-    professor_info_df.to_sql(f"{Database.PROFESSOR_TABLE_NAME}", conn, index=False, if_exists='replace')
+    professor_info_df.to_sql(f"{ProfessorsDB.PROFESSOR_TABLE_NAME}", conn, index=False, if_exists='replace')
 
     conn.commit()
 
     conn.close()
 
 def fetch_all_ratings():
-    conn = sqlite3.connect(Database.NAME)
-    professor_df = pd.read_sql_query(f"SELECT * from {Database.PROFESSOR_TABLE_NAME}", conn)
+    conn = sqlite3.connect(ProfessorsDB.NAME)
+    professor_df = pd.read_sql_query(f"SELECT * from {ProfessorsDB.PROFESSOR_TABLE_NAME}", conn)
 
     ids = professor_df["id"].tolist()
     results = asyncio.run(fetch_async_ratings(ids))
@@ -308,7 +308,7 @@ def fetch_all_ratings():
     ratings_info_df.fillna({"textbook_use" : -1}, inplace=True)
     ratings_info_df["textbook_use"] = ratings_info_df["textbook_use"].apply(lambda x: 0 if x < 3 else 1)
     ratings_info_df.replace("", np.nan, inplace=True)
-    ratings_info_df.to_sql(f"{Database.RATINGS_TABLE_NAME}", conn, index=False, if_exists='replace')
+    ratings_info_df.to_sql(f"{ProfessorsDB.RATINGS_TABLE_NAME}", conn, index=False, if_exists='replace')
 
     conn.commit()
     conn.close()
