@@ -8,25 +8,21 @@ class ProfessorsDB:
     RATINGS_TABLE_NAME = "rmp_ratings"
 
     @staticmethod
-    def get_csp_data_table_as_df() -> pd.DataFrame:
+    def get_data_table_as_df(data_table_name : str) -> pd.DataFrame:
         conn = sqlite3.connect(ProfessorsDB.NAME)
-        csp_df = pd.read_sql_query(f"SELECT * from {ProfessorsDB.CSP_DATA_TABLE_NAME}", conn)
+        df = pd.read_sql_query(f"SELECT * from {data_table_name}", conn)
         conn.close()
-        return csp_df
+        return df
     
     @staticmethod
-    def get_rmp_data_table_as_df() -> pd.DataFrame:
+    def write_data_table_as_df(data_table_name : str, df : pd.DataFrame, append : bool = False) -> pd.DataFrame:
+        if append:
+            original_df = ProfessorsDB.get_data_table_as_df(data_table_name)
+            df = pd.concat([original_df, df], ignore_index=True)
+
         conn = sqlite3.connect(ProfessorsDB.NAME)
-        rmp_df = pd.read_sql_query(f"SELECT * from {ProfessorsDB.PROFESSOR_TABLE_NAME}", conn)
-        conn.close()
-        return rmp_df
-    
-    @staticmethod
-    def write_csp_df_into_csp_data_table(csp_df : pd.DataFrame):
-        conn = sqlite3.connect(ProfessorsDB.NAME)
-        csp_df.to_sql(f"{ProfessorsDB.CSP_DATA_TABLE_NAME}", conn, index=False, if_exists='replace')
+        df.to_sql(f"{data_table_name}", conn, index=False, if_exists='replace')
         conn.commit()
         conn.close()
-        
 
-
+        return df 

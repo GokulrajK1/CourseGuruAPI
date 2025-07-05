@@ -1,3 +1,40 @@
+class RMPQuery:
+    url = "https://www.ratemyprofessors.com/graphql"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Basic dGVzdDp0ZXN0",
+        "Origin": "https://www.ratemyprofessors.com",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36"
+    }   
+    fetch_all_professor_info_query_with_id = """
+        query TeacherRatingsPageQuery($id: ID!, $count: Int!) {
+            node(id: $id) {
+                ... on Teacher {
+                    firstName
+                    lastName
+                    department
+                    avgRating
+                    wouldTakeAgainPercent
+                    avgDifficulty
+                    id
+                    ratings(first: $count) {
+                        edges {
+                            node {
+                                comment
+                                textbookUse
+                                attendanceMandatory
+                                grade
+                                class
+                                ratingTags
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    """
+
+
 URL = "https://www.ratemyprofessors.com/graphql"
 
 HEADERS = {
