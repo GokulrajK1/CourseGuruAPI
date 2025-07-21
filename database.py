@@ -6,6 +6,7 @@ class ProfessorsDB:
     CSP_DATA_TABLE_NAME = "csp_data"
     PROFESSOR_TABLE_NAME = "rmp_professors"
     RATINGS_TABLE_NAME = "rmp_ratings"
+    CSP_WITH_SECTIONS_TABLE_NAME = "csp_with_sections_table_name"
 
     @staticmethod
     def get_data_table_as_df(data_table_name : str) -> pd.DataFrame:
@@ -13,7 +14,7 @@ class ProfessorsDB:
         df = pd.read_sql_query(f"SELECT * from {data_table_name}", conn)
         conn.close()
         return df
-    
+
     @staticmethod
     def write_data_table_as_df(data_table_name : str, df : pd.DataFrame, append : bool = False) -> pd.DataFrame:
         if append:
@@ -25,4 +26,4 @@ class ProfessorsDB:
         conn.commit()
         conn.close()
 
-        return df 
+        return df

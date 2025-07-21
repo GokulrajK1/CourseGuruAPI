@@ -6,26 +6,111 @@ import numpy as np
 import sqlite3
 from name import Name
 from database import ProfessorsDB
+import json
 
 """
-This script will fetch and update the database professors.db 
-This will fetch all professors from CSP and all the professors from RMP as well as their ratings 
-This should be the FIRST script you run to update professor.db 
+This script will fetch and update the database professors.db
+This will fetch all professors from CSP and all the professors from RMP as well as their ratings
+This should be the FIRST script you run to update professor.db
 
 Instructions BEFORE running:
 
-1) Log into Rutgers Course Scheudle Planner and search for courses of any subject 
+1) Log into Rutgers Course Scheudle Planner and search for courses of any subject
 2) Use Inspect Element and navigate to the Network tab and find the JSON request
 3) Find the JSESSSION_ID and sims-csp values in the headers tab
-4) Update CURRENT_JSESSION_ID and CURRENT_SIMS_CSP with the new values  
-5) Update SEMESTER to the previous semester DO NOT use the current one as it may be missing professors 
+4) Update CURRENT_JSESSION_ID and CURRENT_SIMS_CSP with the new values
+5) Update SEMESTER to the previous semester DO NOT use the current one as it may be missing professors
 """
 
-CURRENT_JSESSION_ID = "9D27C3C1D7E085485B8E8A615C369296.jvm1-tc8"
-CURRENT_SIMS_CSP = "1173101996.20480.0000"
+CURRENT_JSESSION_ID = "B3D9131F2C0A16B9A8723EC2CE411445.jvm1-tc8"
+CURRENT_SIMS_CSP = "1156324780.20480.0000"
 
 SEMESTER = "12025"
 COOKIES = {"JSESSIONID" : CURRENT_JSESSION_ID, "sims-csp": CURRENT_SIMS_CSP}
+
+def fetch_scraped_csp_data_with_sections():
+    course_sections = fetch_course_sections()
+    all_courses_data_list = []
+    for courseOfferings in course_sections:
+        courses = courseOfferings["courseOfferings"]
+        for course in courses:
+            course_data_list = parse_course_from_csp(course)
+            all_courses_data_list += course_data_list
+
+    courses_df = pd.DataFrame(all_courses_data_list)
+    ProfessorsDB.write_data_table_as_df(ProfessorsDB.CSP_WITH_SECTIONS_TABLE_NAME, courses_df)
+
+def parse_course_from_csp(course : dict) -> list[dict]:
+    unit = course.get("offeringUnit", {}).get("code")
+    subject = course.get("course", {}).get("subject")
+    number = course.get("course", {}).get("number")
+    title = course.get("fullTitle", "").strip()
+    course_code = f"{unit}:{subject}:{number}"
+    credits = course.get("credits", "0")
+    sections = course.get("sections", [])
+    course_data_list = []
+    for section in sections:
+        registration_index = section.get("registrationIndex")
+        section_number = section.get("sectionNumber")
+        is_open = section.get("open", False)
+        professor_name = section["instructors"][0]["name"] if section["instructors"] else None
+        meeting_times = section.get("meetingTimes")
+        all_meetings_times_string = serialize_all_meeting_times(meeting_times)
+        section_data = {
+            "course_code" : course_code,
+            "course_title" : title,
+            "credits" : credits,
+            "registration_index" : registration_index,
+            "section_number" : section_number,
+            "is_open" : is_open,
+            "professor_name" : professor_name,
+            "meeting_time_serialized" : all_meetings_times_string
+        }
+        course_data_list.append(section_data)
+
+    return course_data_list
+
+
+def serialize_all_meeting_times(meeting_times : list[dict]) -> str:
+    all_meeting_times_string = ""
+    for meeting_time in meeting_times:
+        all_meeting_times_string += serialize_meeting_time(meeting_time) + "|"
+    all_meeting_times_string = all_meeting_times_string[:-1]
+    return all_meeting_times_string
+
+def serialize_meeting_time(meeting_time : dict) -> str:
+    campus_location = meeting_time["campusName"] if meeting_time["campusName"] else "?"
+    building_code = meeting_time["buildingCode"] if meeting_time["buildingCode"] else "?"
+    room_number = meeting_time["roomNumber"] if meeting_time["roomNumber"] else "?"
+    day_to_num = {'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6, 'Sunday': 7}
+    day_number = day_to_num.get(meeting_time["meetingDay"], "0")
+    start_time_minutes = int(meeting_time["startMinute"] if meeting_time["startMinute"] else "0")
+    start_time = f"{start_time_minutes // 60}:{start_time_minutes % 60}"
+    end_time_minutes = int(meeting_time["endMinute"] if meeting_time["endMinute"] else "0")
+    end_time = f"{end_time_minutes // 60}:{end_time_minutes % 60}"
+    string = f"{campus_location}.{building_code}.{room_number}.{day_number}.{start_time}.{end_time}"
+    return string
+
+def deserialize_meeting_time(meeting_time_string : str) -> dict:
+    campus_location, building_code, room_number , day_number, start_time, end_time = meeting_time_string.split(".")
+    num_to_day = {1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday', 7: 'Sunday'}
+    meeting_time_dict = {
+        "campus_location" : campus_location,
+        "building_code" : building_code,
+        "room_number" : room_number,
+        "meeting_day" : num_to_day.get(int(day_number), "?"),
+        "start_time" : start_time,
+        "end_time" : end_time
+    }
+    return meeting_time_dict
+
+def deserialize_all_meeting_times(all_meetings_times_string : str) -> list[dict]:
+    meeting_time_string_list = all_meetings_times_string.split("|")
+    meeting_time_string_dict_list = []
+    for meeting_time_string in meeting_time_string_list:
+        meeting_time_string_dict_list.append(deserialize_meeting_time(meeting_time_string))
+
+    return meeting_time_string_dict_list
 
 def fetch_scraped_csp_data():
 
@@ -50,7 +135,7 @@ def remove_duplicates_in_csp_db():
     df_deduped = df.drop_duplicates(subset=["scraped_name", "first_name", "middle_name"])
     df_deduped.reset_index(drop=True, inplace=True)
     df_deduped.to_sql(ProfessorsDB.CSP_DATA_TABLE_NAME, conn, if_exists="replace", index=False)
-    conn.close() 
+    conn.close()
 
 def insert_csp_data_to_db(names_data):
     conn = sqlite3.connect(ProfessorsDB.NAME)
@@ -69,11 +154,11 @@ def insert_csp_data_to_db(names_data):
         )
     ''')
 
-    query = f""" 
+    query = f"""
         INSERT INTO {ProfessorsDB.CSP_DATA_TABLE_NAME} (
-            scraped_name, 
-            first_name, 
-            middle_name, 
+            scraped_name,
+            first_name,
+            middle_name,
             last_name,
             course_code,
             course_title
@@ -92,7 +177,7 @@ def parse_csp_data_from_sections(sections : list, names_data : list, course : di
     number = course.get("course", {}).get("number")
     title = course.get("fullTitle", "").strip()
     course_code = f"{unit}:{subject}:{number}"
-   
+
     for section in sections:
         scraped_professor_list = section.get("instructors", []) + [{}]
         for scraped_professor_dict in scraped_professor_list:
@@ -111,7 +196,7 @@ def fetch_course_sections():
     subject_codes = response.json()["subjects"]
     results = asyncio.run(fetch_async_sections(subject_codes))
     return results
-    
+
 def get_csp_tasks(session : aiohttp.ClientSession, subject_codes : list):
     url = f"https://sims.rutgers.edu/csp/sectionsLookup.json?semester={SEMESTER}&campus=NB&levelOfStudy=U&subject="
     tasks = []
@@ -221,7 +306,7 @@ FULL_QUERY = """
                         edges {
                             node {
                                 comment
-                                date 
+                                date
                                 helpfulRating
                                 clarityRating
                                 difficultyRating
@@ -266,7 +351,7 @@ def fetch_all_professors_names_and_ids() -> pd.DataFrame:
     professor_info_df = pd.DataFrame(professor_info_list)
     professor_info_df = professor_info_df[["firstName", "lastName", "id", "department", "avgRating", "avgDifficulty", "wouldTakeAgainPercent"]]
     professor_info_df.columns = ["first_name", "last_name", "id", "department", "avg_rating", "avg_difficulty", "would_take_again_percent"]
-    
+
     conn = sqlite3.connect(ProfessorsDB.NAME)
 
     professor_info_df.to_sql(f"{ProfessorsDB.PROFESSOR_TABLE_NAME}", conn, index=False, if_exists='replace')
@@ -287,7 +372,7 @@ def fetch_all_ratings():
         professor_id = ids[i]
         if result["data"]["node"] == None:
             ratings_info_list.append({
-                "id" : professor_id, 
+                "id" : professor_id,
                 "class" : None,
                 "comment" : None,
                 "grade" : None,
@@ -300,7 +385,7 @@ def fetch_all_ratings():
                 rating_info : dict = rating.get("node", {})
                 rating_info.update({"id" : professor_id})
                 ratings_info_list.append(rating_info)
-    
+
     ratings_info_df = pd.DataFrame(ratings_info_list)
     ratings_info_df = ratings_info_df[["id", "class", "comment", "grade", "attendenceMandatory", "textbookUse", "ratingTags"]]
     ratings_info_df.columns = ["id", "class", "comment", "grade", "attendence_mandatory", "textbook_use", "rating_tags"]
@@ -316,11 +401,11 @@ def fetch_all_ratings():
 def get_rmp_tasks(session : aiohttp.ClientSession, professor_ids):
     NUMBER_OF_RATINGS = 100
 
-    tasks = [session.post(URL,  json={"query" : RATINGS_QUERY, 
-            "variables": {"id" : professor_id, "count" : NUMBER_OF_RATINGS}}, 
+    tasks = [session.post(URL,  json={"query" : RATINGS_QUERY,
+            "variables": {"id" : professor_id, "count" : NUMBER_OF_RATINGS}},
             headers=HEADERS) for professor_id in professor_ids]
-    return tasks 
-    
+    return tasks
+
 async def fetch_async_ratings(ids):
     results = []
     async with aiohttp.ClientSession() as session:
@@ -332,5 +417,6 @@ async def fetch_async_ratings(ids):
     return results
 
 if __name__ == "__main__":
-    fetch_scraped_csp_data()
-    fetch_and_store_rmp_data()
+    # fetch_scraped_csp_data()
+    # fetch_and_store_rmp_data()
+    fetch_scraped_csp_data_with_sections()

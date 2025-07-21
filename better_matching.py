@@ -25,7 +25,7 @@ def run_manual_matching(filtered_csp_df : pd.DataFrame, csp_df : pd.DataFrame, r
 
     for _, row in filtered_csp_df.iterrows():
         
-        info = f"CSP Professor Data: {row["scraped_name"]} | {row["course_title"]} | {row["course_code"]}"
+        info = f"CSP Professor Data: {row['scraped_name']} | {row['course_title']} | {row['course_code']}"
         print_separators_bounded(string=info)
 
         matches = get_matches(row, rmp_df)
@@ -93,14 +93,15 @@ def get_matches(row : pd.Series, rmp_df : pd.DataFrame):
 
 def make_web_searches_for_more_rmp_info(row : pd.Series, csp_df : pd.DataFrame, rmp_df : pd.DataFrame, missing_rmp_prof_ids_file_path : str):
     search_terms = [
-        f"{row["scraped_name"]} rate my professor rutgers",
-        f"{row["scraped_name"]} rutgers professor",
-        f"{row["course_code"]} rutgers",
-        f"{row["scraped_name"]} {row["course_code"]} rutgers"
+        f"{row['scraped_name']} rate my professor rutgers",
+        f"{row['scraped_name']} rutgers professor",
+        f"{row['course_code']} rutgers",
+        f"{row['scraped_name']} {row['course_code']} rutgers"
     ]
-
+    
     for term in search_terms[::-1]:
         query = f"https://www.google.com/search?q={term.replace(' ', '+')}"
+        print("hello")
         webbrowser.open_new_tab(query)
 
     found_id = input("RMP ID Found? Just hit enter if not found or enter 'quit' to safey end execution: ").rstrip()
